@@ -75,7 +75,7 @@ Three tables, each keyed by item and month:
 
 1. Clone the repo:
    ```bash
-   git clone https://github.com/<your-account>/stapletrack-ng.git
+   git clone https://github.com/ossolola/stapletrack-ng.git
    cd stapletrack-ng
    ```
 
