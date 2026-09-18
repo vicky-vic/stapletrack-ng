@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+	th:replace="~{fragments/layout :: layout(~{::title}, ~{::main}, ~{::script})}">
+<head>
+	<title>Dashboard · StapleTrack NG</title>
+</head>
+<body>
+<main class="container-st pt-5">
+
+	<h1 class="hero-title">National price trends</h1>
+
+	<th:block th:if="${hasData}">
+		<p class="lead-st mb-5">
+			National average prices from the NBS Selected Food Prices Watch, covering
+			<span th:text="${monthCount}">11</span> months of data. Gaps mark months no uploaded release covers.
+		</p>
+
+		<div class="chart-card" th:each="s, stat : ${series}">
+			<h2 class="chart-card-title" th:text="${s.item}">Rice local sold loose</h2>
+			<p class="chart-card-sub">
+				National average · latest
+				<strong th:text="|₦${#numbers.formatDecimal(s.latestPrice, 1, 'COMMA', 2, 'POINT')}|">₦1,000.00</strong>
+				in <span th:text="${s.latestMonth}">Oct 2024</span>
+				· <span th:text="${s.monthsWithData}">11</span> months of data
+			</p>
+			<div style="position: relative; height: 300px;">
+				<canvas th:id="|trendChart-${stat.index}|" height="300" role="img"
+					th:attr="aria-label=|Line chart of ${s.item} national average price by month|"></canvas>
+			</div>
+		</div>
+	</th:block>
+
+	<th:block th:unless="${hasData}">
+		<p class="lead-st mb-5">Charts appear once you upload NBS releases.</p>
+		<div class="empty-state">
+			<h3>No data yet</h3>
+			<p>Upload your first NBS Selected Food Prices Watch file to see national price trends.</p>
+			<a class="btn-st-primary d-inline-block text-decoration-none" th:href="@{/upload}">Upload a release</a>
+		</div>
+	</th:block>
+
+</main>
+
+<script th:inline="javascript">
+	(() => {
+		const series = JSON.parse(/*[[${seriesJson}]]*/ '[]');
+		if (!series.length) {
+			return;
+		}
+		const css = getComputedStyle(document.documentElement);
+		const green = css.getPropertyValue('--st-green-700').trim();
+		const amber = css.getPropertyValue('--st-amber-500').trim();
+		const ink = css.getPropertyValue('--st-ink-500').trim();
+		const grid = css.getPropertyValue('--st-border').trim();
+		const naira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
+
+		Chart.defaults.font.family = css.getPropertyValue('--font-sans').trim();
+		Chart.defaults.color = ink;
+
+		series.forEach((s, i) => {
+			new Chart(document.getElementById('trendChart-' + i), {
+				type: 'line',
+				data: {
+					labels: s.labels,
+					datasets: [{
+						label: s.item,
+						data: s.values,
+						borderColor: green,
+						backgroundColor: green,
+						pointBackgroundColor: amber,
+						pointBorderColor: green,
+						borderWidth: 2,
+						pointRadius: 5,
+						tension: 0,
+						spanGaps: false
+					}]
+				},
+				options: {
+					maintainAspectRatio: false,
+					plugins: {
+						legend: { display: false },
+						tooltip: { callbacks: { label: ctx => naira.format(ctx.parsed.y) } }
+					},
+					scales: {
+						x: { grid: { display: false } },
+						y: { grid: { color: grid }, ticks: { callback: value => naira.format(value) } }
+					}
+				}
+			});
+		});
+	})();
+</script>
+</body>
+</html>

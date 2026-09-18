@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+	th:replace="~{fragments/layout :: layout(~{::title}, ~{::main}, ~{})}">
+<head>
+	<title>StapleTrack NG</title>
+</head>
+<body>
+<main>
+
+	<div class="container-st">
+		<section class="hero">
+			<p class="hero-eyebrow">Nigerian food price intelligence</p>
+			<h1 class="hero-title">What Nigerians pay for <em>staples</em>, month by month.</h1>
+			<p class="hero-sub">
+				Turning National Bureau of Statistics releases into readable trends, regional comparisons,
+				and short-term forecasts.
+			</p>
+		</section>
+	</div>
+
+	<div class="container-st">
+		<div class="empty-state mt-5" th:unless="${hasData}">
+			<h3>No data yet</h3>
+			<p class="mb-0">Start by uploading your first NBS Selected Food Prices Watch file.</p>
+		</div>
+
+		<div class="feature-grid">
+			<a class="feature-card" th:href="@{/upload}">
+				<span class="feature-card-icon"><i class="bi bi-cloud-upload" aria-hidden="true"></i></span>
+				<h3>Upload monthly releases</h3>
+				<p>Import NBS Selected Food Prices Watch Excel files. Overlapping months are deduplicated automatically.</p>
+				<span class="cta-arrow">Upload files →</span>
+			</a>
+			<a class="feature-card" th:href="@{/dashboard}">
+				<span class="feature-card-icon"><i class="bi bi-graph-up" aria-hidden="true"></i></span>
+				<h3>Explore price trends</h3>
+				<p>National averages over time for rice, garri, beans, yam, tomato and palm oil.</p>
+				<span class="cta-arrow">See the dashboard →</span>
+			</a>
+		</div>
+	</div>
+
+</main>
+</body>
+</html>

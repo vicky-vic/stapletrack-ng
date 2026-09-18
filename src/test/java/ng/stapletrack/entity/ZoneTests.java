@@ -13,8 +13,17 @@ class ZoneTests {
 	}
 
 	@Test
+	void matchesAbbreviationsAndPunctuation() {
+		assertThat(Zone.fromNbsLabel("North-East")).contains(Zone.NORTH_EAST);
+		assertThat(Zone.fromNbsLabel("N/W")).contains(Zone.NORTH_WEST);
+		assertThat(Zone.fromNbsLabel("S. South")).contains(Zone.SOUTH_SOUTH);
+		assertThat(Zone.fromNbsLabel("SE")).contains(Zone.SOUTH_EAST);
+	}
+
+	@Test
 	void rejectsUnknownLabels() {
 		assertThat(Zone.fromNbsLabel("Item Labels")).isEmpty();
+		assertThat(Zone.fromNbsLabel("")).isEmpty();
 		assertThat(Zone.fromNbsLabel(null)).isEmpty();
 	}
 

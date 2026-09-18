@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+	th:replace="~{fragments/layout :: layout(~{::title}, ~{::main}, ~{::script})}">
+<head>
+	<title>Upload · StapleTrack NG</title>
+</head>
+<body>
+<main class="container-st pt-5">
+
+	<h1 class="hero-title">Upload a monthly release</h1>
+	<p class="lead-st mb-4">
+		Download the monthly <strong>Selected Food Prices Watch</strong> Excel file from the Reports section of
+		<a href="https://nigerianstat.gov.ng" target="_blank" rel="noopener">nigerianstat.gov.ng</a>
+		and upload it unchanged. Each release holds national, zonal and highest/lowest-state prices for about
+		43 items — the more months you add, the richer the trends and forecasts.
+	</p>
+
+	<div class="mb-4" th:if="${flashMessage}"
+		th:classappend="|alert-st-${flashType}|"
+		th:attr="role=${flashType == 'error'} ? 'alert' : 'status'">
+		<span th:text="${flashMessage}">Imported 129 national prices.</span>
+		<details class="mt-2" th:if="${flashWarnings != null and !flashWarnings.isEmpty()}">
+			<summary th:text="|${flashWarnings.size()} warning(s) — rows or cells that were skipped|">2 warnings</summary>
+			<ul class="mb-0 mt-2 small">
+				<li th:each="w : ${flashWarnings}" th:text="${w}">Row 5: no prices, skipped.</li>
+			</ul>
+		</details>
+	</div>
+
+	<form method="post" th:action="@{/upload}" enctype="multipart/form-data">
+		<div class="upload-drop mb-4" id="uploadDrop">
+			<h3>Drop your .xlsx file here</h3>
+			<p>Or click to browse. Overlapping months will be deduplicated automatically.</p>
+			<input class="form-control mx-auto" style="max-width: 420px;" type="file" id="file" name="file"
+				accept=".xlsx,.csv" aria-label="Monthly price file" required>
+		</div>
+		<button type="submit" class="btn-st-primary">Upload</button>
+	</form>
+
+</main>
+
+<script>
+	// Make the whole drop zone accept dropped files and open the file picker on click.
+	(() => {
+		const drop = document.getElementById('uploadDrop');
+		const input = document.getElementById('file');
+		drop.addEventListener('click', event => {
+			if (event.target !== input) {
+				input.click();
+			}
+		});
+		drop.addEventListener('dragover', event => event.preventDefault());
+		drop.addEventListener('drop', event => {
+			event.preventDefault();
+			if (event.dataTransfer.files.length) {
+				input.files = event.dataTransfer.files;
+			}
+		});
+	})();
+</script>
+</body>
+</html>

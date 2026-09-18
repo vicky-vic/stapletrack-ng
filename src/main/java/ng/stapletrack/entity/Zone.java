@@ -1,6 +1,8 @@
 package ng.stapletrack.entity;
 
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -8,32 +10,50 @@ import java.util.Optional;
  */
 public enum Zone {
 
-	NORTH_CENTRAL("NORTH CENTRAL"),
-	NORTH_EAST("NORTH EAST"),
-	NORTH_WEST("NORTH WEST"),
-	SOUTH_EAST("SOUTH EAST"),
-	SOUTH_SOUTH("SOUTH SOUTH"),
-	SOUTH_WEST("SOUTH WEST");
+	NORTH_CENTRAL("NORTH CENTRAL", "NC", "NCENTRAL"),
+	NORTH_EAST("NORTH EAST", "NE", "NEAST"),
+	NORTH_WEST("NORTH WEST", "NW", "NWEST"),
+	SOUTH_EAST("SOUTH EAST", "SE", "SEAST"),
+	SOUTH_SOUTH("SOUTH SOUTH", "SS", "SSOUTH"),
+	SOUTH_WEST("SOUTH WEST", "SW", "SWEST");
+
+	/** Letters-only upper-case key (e.g. "NORTHCENTRAL", "NC") → zone. */
+	private static final Map<String, Zone> BY_KEY = new HashMap<>();
+
+	static {
+		for (Zone zone : values()) {
+			BY_KEY.put(key(zone.nbsLabel), zone);
+			for (String alias : zone.aliases) {
+				BY_KEY.put(alias, zone);
+			}
+		}
+	}
 
 	private final String nbsLabel;
+	private final String[] aliases;
 
-	Zone(String nbsLabel) {
+	Zone(String nbsLabel, String... aliases) {
 		this.nbsLabel = nbsLabel;
+		this.aliases = aliases;
 	}
 
 	public String getNbsLabel() {
 		return nbsLabel;
 	}
 
-	/** Matches an NBS column header such as "SOUTH WEST", ignoring case and surrounding whitespace. */
+	/**
+	 * Matches an NBS column header such as "SOUTH WEST", "South-West", "S/W" or "SW",
+	 * ignoring case, spacing and punctuation.
+	 */
 	public static Optional<Zone> fromNbsLabel(String label) {
 		if (label == null) {
 			return Optional.empty();
 		}
-		String normalized = label.trim().replaceAll("\\s+", " ");
-		return Arrays.stream(values())
-				.filter(zone -> zone.nbsLabel.equalsIgnoreCase(normalized))
-				.findFirst();
+		return Optional.ofNullable(BY_KEY.get(key(label)));
+	}
+
+	private static String key(String label) {
+		return label.toUpperCase(Locale.ROOT).replaceAll("[^A-Z]", "");
 	}
 
 }

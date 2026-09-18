@@ -15,6 +15,8 @@
 	<description>Tracking and forecasting Nigerian food staple prices</description>
 	<properties>
 		<java.version>21</java.version>
+		<!-- 5.4.0+ fixes CVE-2025-31672 (OOXML input validation); we parse user uploads -->
+		<poi.version>5.5.1</poi.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -32,6 +34,16 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-thymeleaf</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi</artifactId>
+			<version>${poi.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>${poi.version}</version>
 		</dependency>
 
 		<dependency>

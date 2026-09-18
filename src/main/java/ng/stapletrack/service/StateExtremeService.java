@@ -1,13 +1,11 @@
 package ng.stapletrack.service;
 
-import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import ng.stapletrack.entity.ExtremeKind;
 import ng.stapletrack.entity.StateExtreme;
 import ng.stapletrack.repository.StateExtremeRepository;
 
@@ -19,17 +17,6 @@ public class StateExtremeService {
 
 	public StateExtremeService(StateExtremeRepository repository) {
 		this.repository = repository;
-	}
-
-	/** Inserts the extreme, or overwrites state and price if this item/month/kind was imported before. */
-	@Transactional
-	public StateExtreme upsert(String item, YearMonth monthYear, ExtremeKind kind, String state, BigDecimal price) {
-		BigDecimal normalized = Prices.toKobo(price);
-		StateExtreme record = repository.findByItemAndMonthYearAndKind(item, monthYear, kind)
-				.orElseGet(() -> new StateExtreme(item, monthYear, kind, state, normalized));
-		record.setState(state);
-		record.setPrice(normalized);
-		return repository.save(record);
 	}
 
 	/** The HIGHEST and LOWEST rows for one item and month. */

@@ -1,6 +1,5 @@
 package ng.stapletrack.service;
 
-import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -19,16 +18,6 @@ public class ZonalPriceService {
 
 	public ZonalPriceService(ZonalPriceRepository repository) {
 		this.repository = repository;
-	}
-
-	/** Inserts the price, or overwrites it if this item/month/zone was imported before. */
-	@Transactional
-	public ZonalPrice upsert(String item, YearMonth monthYear, Zone zone, BigDecimal price) {
-		BigDecimal normalized = Prices.toKobo(price);
-		ZonalPrice record = repository.findByItemAndMonthYearAndZone(item, monthYear, zone)
-				.orElseGet(() -> new ZonalPrice(item, monthYear, zone, normalized));
-		record.setPrice(normalized);
-		return repository.save(record);
 	}
 
 	/** All six zones for one item and month, cheapest first. */

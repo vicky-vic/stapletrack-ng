@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<!--/*
+	Shared page shell. Pages use it as:
+	<html th:replace="~{fragments/layout :: layout(~{::title}, ~{::main}, ~{})}">
+	  - title:   the page's <title> element
+	  - content: the page's <main> element
+	  - scripts: page-specific <script> elements, or ~{} for none
+	The active navbar link comes from the currentPage model attribute
+	('home' | 'upload' | 'dashboard'), set by each controller.
+*/-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+	th:fragment="layout(title, content, scripts)">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title th:replace="${title}">StapleTrack NG</title>
+	<link rel="stylesheet"
+		href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+		integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+		crossorigin="anonymous">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+	<link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+	<nav th:fragment="navbar" class="navbar navbar-expand-lg navbar-st">
+		<div class="container-st w-100 d-flex flex-wrap align-items-center justify-content-between">
+			<a class="navbar-brand" th:href="@{/}">StapleTrack NG</a>
+			<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+				aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+			</button>
+			<div class="collapse navbar-collapse flex-grow-0" id="mainNav">
+				<ul class="navbar-nav ms-auto">
+					<li class="nav-item">
+						<a class="nav-link" th:href="@{/}"
+							th:classappend="${currentPage == 'home'} ? 'active'"
+							th:attr="aria-current=${currentPage == 'home'} ? 'page'">Home</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" th:href="@{/upload}"
+							th:classappend="${currentPage == 'upload'} ? 'active'"
+							th:attr="aria-current=${currentPage == 'upload'} ? 'page'">Upload</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" th:href="@{/dashboard}"
+							th:classappend="${currentPage == 'dashboard'} ? 'active'"
+							th:attr="aria-current=${currentPage == 'dashboard'} ? 'page'">Dashboard</a>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</nav>
+
+	<div class="flex-grow-1" th:insert="${content}"></div>
+
+	<footer th:fragment="footer" class="footer-st">
+		<div class="container-st">
+			StapleTrack NG · Built for MMS3 (NIIT) · Data from the
+			<a href="https://nigerianstat.gov.ng" target="_blank" rel="noopener">National Bureau of Statistics</a>
+		</div>
+	</footer>
+
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+		integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+		crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"
+		integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ"
+		crossorigin="anonymous"></script>
+	<th:block th:replace="${scripts}"></th:block>
+</body>
+</html>
