@@ -36,19 +36,35 @@ import ng.stapletrack.entity.Zone;
 /**
  * Reads one monthly NBS "Selected Food Prices Watch" workbook.
  *
- * <p>Sheet 1 (first sheet, name varies) has one row per item with three
- * "Average of MMM-yy" columns plus "Highest"/"Lowest" cells such as "Bauchi (3750)".
- * The zone sheet (name contains "zone") has one column per geopolitical zone.
- * Columns are located by header text, never by position.
+ * <p>Sheets are identified by their header row, never by position or name, because both vary
+ * between releases (Dec 2023 puts the zone sheet first; Nov 2023 calls the summary "National"):
+ * <ul>
+ * <li>summary sheet — header has "Average of MMM-yy" columns plus "Highest"/"Lowest" cells such as "Bauchi (3750)";
+ * <li>zonal sheet — header has at least three geopolitical zone names.
+ * </ul>
+ * Within a sheet, columns are likewise located by header text.
  */
 @Component
 public class NbsPriceWatchParser {
 
-	private static final Pattern MONTH_HEADER = Pattern.compile("Average of ([A-Z][a-z]{2})-(\\d{2})");
+	private static final Pattern MONTH_HEADER = Pattern.compile("Average of ([A-Z][a-z]{2})-(\\d{2})",
+			Pattern.CASE_INSENSITIVE);
 	private static final Pattern EXTREME_CELL = Pattern.compile("^(.+?)\\s*\\(([\\d,.]+)\\)$");
+	private static final Set<String> ZONE_HEADERS = Set.of("north central", "north east", "north west", "south east",
+			"south south", "south west");
+	/** Normalised item-column headers: "ITEM LABEL", "ItemLabel", "Items Label", "Item labels", "Items"… */
+	private static final Set<String> ITEM_HEADERS = Set.of("itemlabel", "itemlabels", "itemslabel", "item", "items");
+	private static final int MIN_ZONE_HEADERS = 3;
+	private static final int HEADER_SCAN_ROWS = 10;
 	private static final int EXPECTED_MONTH_COLUMNS = 3;
 	private static final int MAX_ITEM_LENGTH = 120;
 	private static final int MAX_STATE_LENGTH = 40;
+
+	private enum SheetKind { SUMMARY, ZONAL }
+
+	/** A sheet recognised by its header row. */
+	private record ClassifiedSheet(SheetKind kind, Sheet sheet, Row header) {
+	}
 
 	public ParsedFile parse(InputStream in) {
 		try (Workbook workbook = WorkbookFactory.create(in)) {
@@ -63,15 +79,79 @@ public class NbsPriceWatchParser {
 	}
 
 	ParsedFile parse(Workbook workbook) {
-		if (workbook.getNumberOfSheets() == 0) {
-			throw new NbsFormatException("The workbook has no sheets.");
-		}
 		List<String> warnings = new ArrayList<>();
-		List<NationalPrice> national = new ArrayList<>();
-		List<StateExtreme> extremes = new ArrayList<>();
 
-		Sheet priceSheet = workbook.getSheetAt(0);
-		Row header = headerRow(priceSheet);
+		ClassifiedSheet summary = null;
+		ClassifiedSheet zonal = null;
+		for (Sheet sheet : workbook) {
+			Optional<ClassifiedSheet> classified = classify(sheet);
+			if (classified.isEmpty()) {
+				continue;
+			}
+			ClassifiedSheet found = classified.get();
+			if (found.kind() == SheetKind.SUMMARY && summary == null) {
+				summary = found;
+			}
+			else if (found.kind() == SheetKind.ZONAL && zonal == null) {
+				zonal = found;
+			}
+			else {
+				warnings.add("Sheet '" + sheet.getSheetName() + "' looks like a second "
+						+ found.kind().name().toLowerCase(Locale.ROOT) + " sheet, ignored.");
+			}
+		}
+		if (summary == null) {
+			throw new NbsFormatException("No sheet has 'Average of MMM-yy' columns"
+					+ " — is this an NBS Selected Food Prices Watch file?");
+		}
+
+		SummaryResult national = parseSummarySheet(summary, warnings);
+		List<ZonalPrice> zonalPrices;
+		if (zonal == null) {
+			warnings.add("No sheet has geopolitical zone columns — zonal prices were not imported.");
+			zonalPrices = List.of();
+		}
+		else {
+			zonalPrices = parseZoneSheet(zonal, national.currentMonth(), warnings);
+		}
+		return new ParsedFile(national.currentMonth(), national.prices(), national.extremes(), zonalPrices, warnings);
+	}
+
+	/**
+	 * Scans the first rows of a sheet for a header: a row with an "Average of MMM-yy" cell makes it the
+	 * summary sheet; a row with at least three zone names makes it the zonal sheet.
+	 */
+	private static Optional<ClassifiedSheet> classify(Sheet sheet) {
+		int lastRow = Math.min(sheet.getLastRowNum(), sheet.getFirstRowNum() + HEADER_SCAN_ROWS - 1);
+		for (int r = Math.max(sheet.getFirstRowNum(), 0); r <= lastRow; r++) {
+			Row row = sheet.getRow(r);
+			if (row == null) {
+				continue;
+			}
+			int zoneCells = 0;
+			for (Cell cell : row) {
+				String text = text(cell);
+				if (MONTH_HEADER.matcher(text).find()) {
+					return Optional.of(new ClassifiedSheet(SheetKind.SUMMARY, sheet, row));
+				}
+				if (ZONE_HEADERS.contains(zoneKey(text))) {
+					zoneCells++;
+				}
+			}
+			if (zoneCells >= MIN_ZONE_HEADERS) {
+				return Optional.of(new ClassifiedSheet(SheetKind.ZONAL, sheet, row));
+			}
+		}
+		return Optional.empty();
+	}
+
+	private record SummaryResult(YearMonth currentMonth, List<NationalPrice> prices, List<StateExtreme> extremes) {
+	}
+
+	private SummaryResult parseSummarySheet(ClassifiedSheet summary, List<String> warnings) {
+		Sheet sheet = summary.sheet();
+		Row header = summary.header();
+		String sheetName = sheet.getSheetName();
 
 		Map<Integer, YearMonth> monthColumns = new LinkedHashMap<>();
 		Integer highestCol = null;
@@ -82,7 +162,7 @@ public class NbsPriceWatchParser {
 			if (m.find()) {
 				parseMonth(m.group(1), m.group(2)).ifPresentOrElse(
 						month -> monthColumns.put(cell.getColumnIndex(), month),
-						() -> warnings.add("Sheet '" + priceSheet.getSheetName() + "': unrecognised month header '" + text + "'."));
+						() -> warnings.add("Sheet '" + sheetName + "': unrecognised month header '" + text + "'."));
 			}
 			else if (text.equalsIgnoreCase("Highest")) {
 				highestCol = cell.getColumnIndex();
@@ -92,26 +172,29 @@ public class NbsPriceWatchParser {
 			}
 		}
 		if (monthColumns.isEmpty()) {
-			throw new NbsFormatException("Sheet '" + priceSheet.getSheetName()
-					+ "' has no 'Average of MMM-yy' columns — is this an NBS Selected Food Prices Watch file?");
+			throw new NbsFormatException("Sheet '" + sheetName
+					+ "' has no readable 'Average of MMM-yy' columns — is this an NBS Selected Food Prices Watch file?");
 		}
 		if (monthColumns.size() != EXPECTED_MONTH_COLUMNS) {
 			warnings.add("Expected " + EXPECTED_MONTH_COLUMNS + " 'Average of' month columns but found "
 					+ monthColumns.size() + ".");
 		}
 		if (highestCol == null || lowestCol == null) {
-			warnings.add("Sheet '" + priceSheet.getSheetName()
+			warnings.add("Sheet '" + sheetName
 					+ "' is missing a 'Highest' or 'Lowest' column — state extremes were not imported.");
 		}
 		YearMonth currentMonth = monthColumns.values().stream().max(Comparator.naturalOrder()).orElseThrow();
+		int itemCol = itemColumn(sheetName, header, warnings);
 
+		List<NationalPrice> national = new ArrayList<>();
+		List<StateExtreme> extremes = new ArrayList<>();
 		Set<String> seenItems = new HashSet<>();
-		for (Row row : priceSheet) {
+		for (Row row : sheet) {
 			if (row.getRowNum() <= header.getRowNum()) {
 				continue;
 			}
-			String where = "Sheet '" + priceSheet.getSheetName() + "' row " + (row.getRowNum() + 1);
-			String item = itemLabel(row, where, seenItems, warnings);
+			String where = "Sheet '" + sheetName + "' row " + (row.getRowNum() + 1);
+			String item = itemLabel(row, itemCol, where, seenItems, warnings);
 			if (item == null) {
 				continue;
 			}
@@ -140,30 +223,19 @@ public class NbsPriceWatchParser {
 						.ifPresent(extremes::add);
 			}
 		}
-
-		List<ZonalPrice> zonal = parseZoneSheet(workbook, currentMonth, warnings);
-		return new ParsedFile(currentMonth, national, extremes, zonal, warnings);
+		return new SummaryResult(currentMonth, national, extremes);
 	}
 
-	private List<ZonalPrice> parseZoneSheet(Workbook workbook, YearMonth currentMonth, List<String> warnings) {
-		Sheet zoneSheet = null;
-		for (int i = 1; i < workbook.getNumberOfSheets(); i++) {
-			if (workbook.getSheetName(i).toLowerCase(Locale.ROOT).contains("zone")) {
-				zoneSheet = workbook.getSheetAt(i);
-				break;
-			}
-		}
-		if (zoneSheet == null) {
-			warnings.add("No sheet with 'zone' in its name — zonal prices were not imported.");
-			return List.of();
-		}
-		String sheetName = zoneSheet.getSheetName();
-		Row header = headerRow(zoneSheet);
+	private List<ZonalPrice> parseZoneSheet(ClassifiedSheet zonalSheet, YearMonth currentMonth, List<String> warnings) {
+		Sheet sheet = zonalSheet.sheet();
+		Row header = zonalSheet.header();
+		String sheetName = sheet.getSheetName();
+		int itemCol = itemColumn(sheetName, header, warnings);
 
 		Map<Integer, Zone> zoneColumns = new LinkedHashMap<>();
 		Map<Zone, Integer> columnOfZone = new EnumMap<>(Zone.class);
 		for (Cell cell : header) {
-			if (cell.getColumnIndex() == 0) {
+			if (cell.getColumnIndex() == itemCol) {
 				continue;
 			}
 			String text = text(cell);
@@ -189,12 +261,12 @@ public class NbsPriceWatchParser {
 
 		List<ZonalPrice> zonal = new ArrayList<>();
 		Set<String> seenItems = new HashSet<>();
-		for (Row row : zoneSheet) {
+		for (Row row : sheet) {
 			if (row.getRowNum() <= header.getRowNum()) {
 				continue;
 			}
 			String where = "Sheet '" + sheetName + "' row " + (row.getRowNum() + 1);
-			String item = itemLabel(row, where, seenItems, warnings);
+			String item = itemLabel(row, itemCol, where, seenItems, warnings);
 			if (item == null) {
 				continue;
 			}
@@ -218,24 +290,24 @@ public class NbsPriceWatchParser {
 		return zonal;
 	}
 
-	/** The first non-empty row is the header ("Row 1" in the NBS files). */
-	private static Row headerRow(Sheet sheet) {
-		for (Row row : sheet) {
-			for (Cell cell : row) {
-				if (!text(cell).isEmpty()) {
-					return row;
-				}
+	/** The column whose header is an item label (see {@link #ITEM_HEADERS}); falls back to column A. */
+	private static int itemColumn(String sheetName, Row header, List<String> warnings) {
+		for (Cell cell : header) {
+			String key = text(cell).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+			if (ITEM_HEADERS.contains(key)) {
+				return cell.getColumnIndex();
 			}
 		}
-		throw new NbsFormatException("Sheet '" + sheet.getSheetName() + "' is empty.");
+		warnings.add("Sheet '" + sheetName + "': no 'Item Label' header found, reading item names from column A.");
+		return 0;
 	}
 
 	/**
-	 * Column A, cleaned up; null means "skip this row". Blank rows and "Grand Total"
+	 * The item column, cleaned up; null means "skip this row". Blank rows and "Grand Total"
 	 * are skipped silently; duplicates and over-long labels produce a warning.
 	 */
-	private static String itemLabel(Row row, String where, Set<String> seenItems, List<String> warnings) {
-		String item = cleanLabel(text(row.getCell(0)));
+	private static String itemLabel(Row row, int itemCol, String where, Set<String> seenItems, List<String> warnings) {
+		String item = cleanLabel(text(row.getCell(itemCol)));
 		if (item.isEmpty() || item.equalsIgnoreCase("Grand Total")) {
 			return null;
 		}
@@ -265,7 +337,7 @@ public class NbsPriceWatchParser {
 					+ "' is not in the form 'State (price)', skipped.");
 			return Optional.empty();
 		}
-		String state = cleanLabel(m.group(1).replace('_', ' '));
+		String state = cleanStateName(m.group(1));
 		if (state.length() > MAX_STATE_LENGTH) {
 			warnings.add(where + " (" + item + "): " + label + " state name too long, skipped.");
 			return Optional.empty();
@@ -273,9 +345,19 @@ public class NbsPriceWatchParser {
 		return Optional.of(new StateExtreme(item, month, kind, state, price));
 	}
 
+	/** NBS writes multi-word states with underscores in some releases: "Akwa_Ibom" → "Akwa Ibom". */
+	static String cleanStateName(String raw) {
+		return cleanLabel(raw.replaceAll("_+", " "));
+	}
+
 	/** Trim, turn non-breaking spaces into spaces and collapse runs of whitespace; casing is kept. */
 	static String cleanLabel(String raw) {
 		return raw.replace(' ', ' ').trim().replaceAll("\\s+", " ");
+	}
+
+	/** Lower-case, punctuation to spaces, whitespace collapsed: "NORTH-CENTRAL " → "north central". */
+	private static String zoneKey(String text) {
+		return text.toLowerCase(Locale.ROOT).replaceAll("[^a-z]+", " ").trim();
 	}
 
 	static Optional<YearMonth> parseMonth(String monthAbbrev, String twoDigitYear) {
