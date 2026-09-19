@@ -366,6 +366,82 @@ h3 { font-size: 1.5rem; line-height: 1.2; }
     color: var(--st-amber-700);
 }
 
+/* Map (left, ~40%) beside the bar chart (right, ~60%); stacked with the map on top under 900px */
+.zones-split {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: 2rem;
+    align-items: start;
+}
+
+@media (max-width: 899.98px) {
+    .zones-split {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.zone-map {
+    width: 100%;
+    max-width: 100%;
+}
+
+.zone-map svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.zone-map .ng-state {
+    transition: opacity 0.15s ease;
+    cursor: default;
+}
+
+.zone-map .ng-state:hover {
+    opacity: 0.85;
+    stroke-width: 1.5 !important;
+    stroke: var(--st-ink-900) !important;
+}
+
+.zone-map-legend {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--st-ink-500);
+}
+
+.zone-map-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    line-height: 1.3;
+}
+
+.zone-map-legend-item strong {
+    color: var(--st-ink-900);
+    font-weight: 500;
+}
+
+.zone-map-credit {
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--st-ink-300);
+    margin: 0.5rem 0 0;
+}
+
+.zone-map-credit a {
+    color: inherit;
+}
+
+.zone-map-swatch {
+    display: inline-block;
+    width: 28px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid var(--st-border-strong);
+}
+
 .zones-summary {
     font-size: 1.1rem;
     color: var(--st-ink-900);

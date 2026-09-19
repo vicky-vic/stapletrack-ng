@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
-	th:replace="~{fragments/layout :: layout(~{::title}, ~{::main}, ~{::script})}">
+	th:replace="~{fragments/layout :: layout(~{::head/title}, ~{::main}, ~{::script})}">
 <head>
 	<title>Regional gaps · StapleTrack NG</title>
 </head>
@@ -45,10 +45,30 @@
 			<div class="chart-card">
 				<h2 class="chart-card-title" th:text="|${breakdown.item} across the six zones · ${monthLabel}|">
 					Rice local sold loose across the six zones · Oct 2024</h2>
-				<p class="chart-card-sub">Average price by geopolitical zone, cheapest at the top. The amber bar is the cheapest zone.</p>
-				<div style="position: relative; height: 360px;">
-					<canvas id="zonesChart" height="360" role="img"
-						th:attr="aria-label=|Bar chart of ${breakdown.item} prices across the six geopolitical zones in ${monthLabel}, cheapest first|"></canvas>
+				<p class="chart-card-sub">Average price by geopolitical zone. Map and bars share one scale: green is the
+					cheapest zone, amber the most expensive. Hover a state for its zone's price.</p>
+				<div class="zones-split">
+					<div class="zone-map-column">
+						<div class="zone-map" th:utext="${nigeriaMapSvg}"></div>
+						<div class="zone-map-legend">
+							<div class="zone-map-legend-item">
+								<span class="zone-map-swatch" th:style="|background: ${hexColors.get(breakdown.cheapest.zone)}|"></span>
+								<span>Cheapest<br><strong th:text="|₦${#numbers.formatDecimal(breakdown.cheapest.price, 1, 'COMMA', 0, 'POINT')}|">₦1,764</strong></span>
+							</div>
+							<div class="zone-map-legend-item">
+								<span class="zone-map-swatch" th:style="|background: ${hexColors.get(breakdown.priciest.zone)}|"></span>
+								<span>Most expensive<br><strong th:text="|₦${#numbers.formatDecimal(breakdown.priciest.price, 1, 'COMMA', 0, 'POINT')}|">₦2,146</strong></span>
+							</div>
+						</div>
+						<p class="zone-map-credit">Map: <a href="https://mapsvg.com/maps/nigeria" target="_blank" rel="noopener">MapSVG</a>,
+							<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></p>
+					</div>
+					<div class="zone-chart-column">
+						<div style="position: relative; height: 360px;">
+							<canvas id="zonesChart" height="360" role="img"
+								th:attr="aria-label=|Bar chart of ${breakdown.item} prices across the six geopolitical zones in ${monthLabel}, cheapest first|"></canvas>
+						</div>
+					</div>
 				</div>
 			</div>
 
@@ -104,14 +124,12 @@
 		Chart.defaults.font.family = token('--font-sans');
 		Chart.defaults.color = token('--st-ink-500');
 
-		// Zones arrive cheapest first; only the first bar is amber
-		const colours = chart.prices.map((_, i) => i === 0 ? token('--st-amber-500') : token('--st-green-700'));
-
 		const zonesChart = new Chart(document.getElementById('zonesChart'), {
 			type: 'bar',
 			data: {
 				labels: chart.labels,
-				datasets: [{ label: 'Average price', data: chart.prices, backgroundColor: colours, borderRadius: 4, maxBarThickness: 36 }]
+				// Bars use the same per-zone colours as the map
+				datasets: [{ label: 'Average price', data: chart.prices, backgroundColor: chart.colors, borderRadius: 4, maxBarThickness: 36 }]
 			},
 			options: {
 				indexAxis: 'y',

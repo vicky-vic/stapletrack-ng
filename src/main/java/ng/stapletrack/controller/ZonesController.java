@@ -3,7 +3,9 @@ package ng.stapletrack.controller;
 import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -13,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import ng.stapletrack.entity.Zone;
+import ng.stapletrack.service.NigeriaMapRenderer;
 import ng.stapletrack.service.ZonesService;
 import ng.stapletrack.service.ZonesService.ZonalBreakdown;
 import ng.stapletrack.service.ZonesService.ZonePrice;
@@ -23,10 +27,12 @@ public class ZonesController {
 	static final String DEFAULT_ITEM = "Rice local sold loose";
 
 	private final ZonesService zonesService;
+	private final NigeriaMapRenderer mapRenderer;
 	private final ObjectMapper objectMapper;
 
-	public ZonesController(ZonesService zonesService, ObjectMapper objectMapper) {
+	public ZonesController(ZonesService zonesService, NigeriaMapRenderer mapRenderer, ObjectMapper objectMapper) {
 		this.zonesService = zonesService;
+		this.mapRenderer = mapRenderer;
 		this.objectMapper = objectMapper;
 	}
 
@@ -59,18 +65,31 @@ public class ZonesController {
 		model.addAttribute("selectedItem", selectedItem);
 		model.addAttribute("selectedMonth", selectedMonth);
 		model.addAttribute("breakdown", breakdown);
-		// Serialized with Jackson; the template embeds it as an escaped JS string and JSON.parse()s it
-		model.addAttribute("chartJson", breakdown == null ? "null" : objectMapper.writeValueAsString(chart(breakdown)));
+		if (breakdown != null) {
+			// Fill per zone (zones without data are absent); the map and the bars share these colours
+			model.addAttribute("hexColors", breakdown.hexColors());
+			// Trusted markup: our own classpath SVG with server-generated styles and escaped titles
+			model.addAttribute("nigeriaMapSvg", mapRenderer.render(breakdown.hexColors(), pricesByZone(breakdown)));
+			// Serialized with Jackson; the template embeds it as an escaped JS string and JSON.parse()s it
+			model.addAttribute("chartJson", objectMapper.writeValueAsString(chart(breakdown)));
+		}
 		return "zones";
 	}
 
-	/** Bar chart payload: zones cheapest first, with prices aligned to labels. */
-	record ZoneChart(List<String> labels, List<BigDecimal> prices) {
+	/** Bar chart payload: zones cheapest first, with prices and bar colours aligned to labels. */
+	record ZoneChart(List<String> labels, List<BigDecimal> prices, List<String> colors) {
 	}
 
 	private static ZoneChart chart(ZonalBreakdown breakdown) {
 		return new ZoneChart(breakdown.zones().stream().map(ZonePrice::name).toList(),
-				breakdown.zones().stream().map(ZonePrice::price).toList());
+				breakdown.zones().stream().map(ZonePrice::price).toList(),
+				breakdown.zones().stream().map(z -> breakdown.hexColors().get(z.zone())).toList());
+	}
+
+	private static Map<Zone, BigDecimal> pricesByZone(ZonalBreakdown breakdown) {
+		Map<Zone, BigDecimal> prices = new EnumMap<>(Zone.class);
+		breakdown.zones().forEach(z -> prices.put(z.zone(), z.price()));
+		return prices;
 	}
 
 	private static YearMonth parseMonth(String month) {

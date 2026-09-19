@@ -1,6 +1,9 @@
 package ng.stapletrack.controller;
 
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.startsWith;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.not;
@@ -20,17 +23,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import ng.stapletrack.entity.Zone;
+import ng.stapletrack.service.NigeriaMapRenderer;
 import ng.stapletrack.service.Spread;
 import ng.stapletrack.service.ZonesService;
 import ng.stapletrack.service.ZonesService.ZonalBreakdown;
 import ng.stapletrack.service.ZonesService.ZonePrice;
 
-/** Renders the zones page against a mocked service — no database needed. */
+/** Renders the zones page against a mocked service and the real map file — no database needed. */
 @WebMvcTest(ZonesController.class)
+@Import(NigeriaMapRenderer.class)
 class ZonesControllerTests {
 
 	private static final String RICE = "Rice local sold loose";
@@ -92,6 +98,30 @@ class ZonesControllerTests {
 	}
 
 	@Test
+	void mapIsTheColouredNigeriaSvgAndBarsShareItsColours() throws Exception {
+		mvc.perform(get("/zones"))
+				.andExpect(status().isOk())
+				.andExpect(model().attribute("hexColors", allOf(
+						aMapWithSize(2), hasEntry(Zone.NORTH_WEST, "#1B4332"), hasEntry(Zone.SOUTH_SOUTH, "#E9A83A"))))
+				.andExpect(model().attribute("nigeriaMapSvg", allOf(
+						startsWith("<svg"),
+						// A state in a zone with data carries that zone's colour and price
+						matchesPattern(Pattern.compile(
+								".*<path[^>]*data-state-name=\"Kano\"[^>]*style=\"fill: #1B4332; stroke: #FFFFFF; stroke-width: 0.5;\"[^>]*>"
+										+ "\s*<title>Kano — North West · ₦1,780</title>.*", Pattern.DOTALL)),
+						containsString("style=\"fill: #E9A83A; stroke: #FFFFFF; stroke-width: 0.5;\""),
+						// A zone without data is neutral cream, with no price in the tooltip
+						containsString("<title>Benue — North Central</title>"),
+						containsString("style=\"fill: var(--st-cream-100); stroke: #FFFFFF; stroke-width: 0.5;\""),
+						not(containsString("<metadata>")))))
+				.andExpect(model().attribute("chartJson", containsString("\"colors\":[\"#1B4332\",\"#E9A83A\"]")))
+				.andExpect(content().string(allOf(
+						containsString("<div class=\"zone-map\"><svg"),
+						containsString("MapSVG"),
+						containsString("CC BY 4.0"))));
+	}
+
+	@Test
 	void unknownParametersFallBackToDefaults() throws Exception {
 		mvc.perform(get("/zones").param("item", "Not an item").param("month", "garbage"))
 				.andExpect(status().isOk())
@@ -113,8 +143,9 @@ class ZonesControllerTests {
 	}
 
 	private static ZonalBreakdown breakdown(String item, YearMonth month, ZonePrice cheapest, ZonePrice priciest) {
-		return new ZonalBreakdown(item, month, List.of(cheapest, priciest), cheapest, priciest,
-				Spread.between(cheapest.price(), priciest.price()));
+		List<ZonePrice> zones = List.of(cheapest, priciest);
+		return new ZonalBreakdown(item, month, zones, cheapest, priciest,
+				Spread.between(cheapest.price(), priciest.price()), ZonesService.computeHexColors(zones));
 	}
 
 }
