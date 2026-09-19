@@ -13,6 +13,8 @@ public interface NationalPriceRepository extends JpaRepository<NationalPrice, Lo
 
 	Optional<NationalPrice> findByItemAndMonthYear(String item, YearMonth monthYear);
 
+	List<NationalPrice> findByItemOrderByMonthYearAsc(String item);
+
 	List<NationalPrice> findByItemAndMonthYearBetweenOrderByMonthYearAsc(String item, YearMonth from, YearMonth to);
 
 	List<NationalPrice> findByMonthYearOrderByItemAsc(YearMonth monthYear);

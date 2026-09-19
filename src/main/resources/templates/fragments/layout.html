@@ -6,7 +6,7 @@
 	  - content: the page's <main> element
 	  - scripts: page-specific <script> elements, or ~{} for none
 	The active navbar link comes from the currentPage model attribute
-	('home' | 'upload' | 'dashboard'), set by each controller.
+	('home' | 'upload' | 'extremes' | 'zones' | 'forecast' | 'dashboard'), set by each controller.
 */-->
 <html lang="en" xmlns:th="http://www.thymeleaf.org"
 	th:fragment="layout(title, content, scripts)">
@@ -41,6 +41,21 @@
 						<a class="nav-link" th:href="@{/upload}"
 							th:classappend="${currentPage == 'upload'} ? 'active'"
 							th:attr="aria-current=${currentPage == 'upload'} ? 'page'">Upload</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" th:href="@{/extremes}"
+							th:classappend="${currentPage == 'extremes'} ? 'active'"
+							th:attr="aria-current=${currentPage == 'extremes'} ? 'page'">Extremes</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" th:href="@{/zones}"
+							th:classappend="${currentPage == 'zones'} ? 'active'"
+							th:attr="aria-current=${currentPage == 'zones'} ? 'page'">Zones</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" th:href="@{/forecast}"
+							th:classappend="${currentPage == 'forecast'} ? 'active'"
+							th:attr="aria-current=${currentPage == 'forecast'} ? 'page'">Forecast</a>
 					</li>
 					<li class="nav-item">
 						<a class="nav-link" th:href="@{/dashboard}"

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+	th:replace="~{fragments/layout :: layout(~{::title}, ~{::main}, ~{::script})}">
+<head>
+	<title>Regional gaps · StapleTrack NG</title>
+</head>
+<body>
+<main class="container-st pt-5">
+
+	<h1 class="hero-title">Regional price gaps</h1>
+	<p class="lead-st mb-5">
+		For any staple in any month, see how the six geopolitical zones compare — and which regions Nigerians
+		pay the most in for the same food.
+	</p>
+
+	<th:block th:unless="${hasData}">
+		<div class="empty-state">
+			<h3>No data yet</h3>
+			<p>Upload an NBS Selected Food Prices Watch file to compare zones.</p>
+			<a class="btn-st-primary d-inline-block text-decoration-none" th:href="@{/upload}">Upload a release</a>
+		</div>
+	</th:block>
+
+	<th:block th:if="${hasData}">
+		<form id="zones-form" class="chart-card" method="get" th:action="@{/zones}">
+			<div class="row g-3 align-items-end">
+				<div class="col-md-8">
+					<label for="item" class="form-label fw-medium">Item</label>
+					<select id="item" name="item" class="form-select">
+						<option th:each="i : ${items}" th:value="${i}" th:selected="${i == selectedItem}" th:text="${i}">Rice local sold loose</option>
+					</select>
+				</div>
+				<div class="col-md-4">
+					<label for="month" class="form-label fw-medium">Month</label>
+					<select id="month" name="month" class="form-select">
+						<option th:each="m : ${months}" th:value="${m}" th:selected="${m == selectedMonth}" th:text="${#temporals.format(m, 'MMM yyyy')}">Oct 2024</option>
+					</select>
+				</div>
+			</div>
+			<noscript><button type="submit" class="btn-st-primary mt-3">Compare zones</button></noscript>
+		</form>
+
+		<th:block th:if="${breakdown != null}"
+			th:with="monthLabel=${#temporals.format(breakdown.month, 'MMM yyyy')}">
+			<div class="chart-card">
+				<h2 class="chart-card-title" th:text="|${breakdown.item} across the six zones · ${monthLabel}|">
+					Rice local sold loose across the six zones · Oct 2024</h2>
+				<p class="chart-card-sub">Average price by geopolitical zone, cheapest at the top. The amber bar is the cheapest zone.</p>
+				<div style="position: relative; height: 360px;">
+					<canvas id="zonesChart" height="360" role="img"
+						th:attr="aria-label=|Bar chart of ${breakdown.item} prices across the six geopolitical zones in ${monthLabel}, cheapest first|"></canvas>
+				</div>
+			</div>
+
+			<div class="metric-grid">
+				<div class="metric-card metric-card-cheapest">
+					<p class="metric-label">Cheapest zone</p>
+					<p class="metric-value" th:text="${breakdown.cheapest.name}">North West</p>
+					<p class="metric-detail" th:text="|₦${#numbers.formatDecimal(breakdown.cheapest.price, 1, 'COMMA', 2, 'POINT')}|">₦1,800.00</p>
+				</div>
+				<div class="metric-card metric-card-priciest">
+					<p class="metric-label">Most expensive zone</p>
+					<p class="metric-value" th:text="${breakdown.priciest.name}">South South</p>
+					<p class="metric-detail" th:text="|₦${#numbers.formatDecimal(breakdown.priciest.price, 1, 'COMMA', 2, 'POINT')}|">₦2,100.00</p>
+				</div>
+				<div class="metric-card">
+					<p class="metric-label">Spread</p>
+					<p class="metric-value" th:text="${breakdown.spread.label()}">17% more</p>
+					<p class="metric-detail">most expensive vs cheapest zone</p>
+				</div>
+			</div>
+
+			<p class="zones-summary" id="zones-summary">
+				In <span th:text="${monthLabel}">Oct 2024</span>, <span th:text="${breakdown.item}">Rice local sold loose</span>
+				was cheapest in <strong th:text="${breakdown.cheapest.name}">North West</strong> at
+				<span th:text="|₦${#numbers.formatDecimal(breakdown.cheapest.price, 1, 'COMMA', 2, 'POINT')}|">₦1,800.00</span>
+				and most expensive in <strong th:text="${breakdown.priciest.name}">South South</strong> at
+				<span th:text="|₦${#numbers.formatDecimal(breakdown.priciest.price, 1, 'COMMA', 2, 'POINT')}|">₦2,100.00</span>
+				— a spread of <strong th:text="${breakdown.spread.shortLabel()}">17%</strong>.
+			</p>
+		</th:block>
+
+		<div class="empty-state" th:if="${breakdown == null}">
+			<h3>No zonal prices for this selection</h3>
+			<p class="mb-0">
+				The <span th:text="${#temporals.format(selectedMonth, 'MMM yyyy')}">Oct 2024</span> release has no zone
+				prices for <span th:text="${selectedItem}">this item</span>. Try another month.
+			</p>
+		</div>
+	</th:block>
+
+</main>
+
+<script th:inline="javascript">
+	document.querySelectorAll('#zones-form select').forEach(s => s.addEventListener('change', () => s.form.submit()));
+	(() => {
+		const chart = JSON.parse(/*[[${chartJson}]]*/ 'null');
+		if (!chart) {
+			return;
+		}
+		const css = getComputedStyle(document.documentElement);
+		const token = name => css.getPropertyValue(name).trim();
+		const naira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
+		Chart.defaults.font.family = token('--font-sans');
+		Chart.defaults.color = token('--st-ink-500');
+
+		// Zones arrive cheapest first; only the first bar is amber
+		const colours = chart.prices.map((_, i) => i === 0 ? token('--st-amber-500') : token('--st-green-700'));
+
+		const zonesChart = new Chart(document.getElementById('zonesChart'), {
+			type: 'bar',
+			data: {
+				labels: chart.labels,
+				datasets: [{ label: 'Average price', data: chart.prices, backgroundColor: colours, borderRadius: 4, maxBarThickness: 36 }]
+			},
+			options: {
+				indexAxis: 'y',
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: { callbacks: { label: ctx => naira.format(ctx.parsed.x) } }
+				},
+				scales: {
+					x: { beginAtZero: true, grid: { color: token('--st-border') }, ticks: { callback: value => naira.format(value) } },
+					y: { grid: { display: false }, ticks: { color: token('--st-ink-900'), font: { size: 14 } } }
+				}
+			}
+		});
+		// Zone-name labels are measured at creation; re-measure once DM Sans has loaded (see forecast-chart.js)
+		if (document.fonts && document.fonts.ready) {
+			document.fonts.ready.then(() => zonesChart.update('none'));
+		}
+	})();
+</script>
+</body>
+</html>

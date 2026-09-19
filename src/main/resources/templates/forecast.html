@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+	th:replace="~{fragments/layout :: layout(~{::title}, ~{::main}, ~{::script})}">
+<head>
+	<title>Forecast · StapleTrack NG</title>
+</head>
+<body>
+<main class="container-st pt-5">
+
+	<h1 class="hero-title">Price forecast</h1>
+	<p class="lead-st mb-5">
+		A statistical projection of where each staple's national price is heading over the next three months,
+		based on the trend so far. The shaded band shows the range prices are 95% likely to fall within — if the
+		recent trend continues.
+	</p>
+
+	<th:block th:unless="${hasData}">
+		<div class="empty-state">
+			<h3>No data yet</h3>
+			<p>Upload NBS Selected Food Prices Watch files to build a forecast.</p>
+			<a class="btn-st-primary d-inline-block text-decoration-none" th:href="@{/upload}">Upload a release</a>
+		</div>
+	</th:block>
+
+	<th:block th:if="${hasData}">
+		<form id="forecast-form" class="chart-card" method="get" th:action="@{/forecast}">
+			<label for="item" class="form-label fw-medium">Item</label>
+			<select id="item" name="item" class="form-select">
+				<option th:each="i : ${items}" th:value="${i}" th:selected="${i == selectedItem}" th:text="${i}">Rice local sold loose</option>
+			</select>
+			<noscript><button type="submit" class="btn-st-primary mt-3">Show forecast</button></noscript>
+		</form>
+
+		<th:block th:if="${forecast != null}">
+			<div class="chart-card">
+				<h2 class="chart-card-title" th:text="${forecast.item}">Rice local sold loose</h2>
+				<p class="chart-card-sub">
+					National average, <span th:text="${forecast.meta.sampleWindow}">Nov 2022 – Oct 2024</span>,
+					with 3-month forecasts from the full history (green) and the last 12 months (amber) · latest
+					<strong th:text="|₦${#numbers.formatDecimal(forecast.latest.price, 1, 'COMMA', 2, 'POINT')}|">₦1,944.64</strong>
+					in <span th:text="${#temporals.format(forecast.latest.month, 'MMM yyyy')}">Oct 2024</span>
+				</p>
+				<div style="position: relative; height: 400px;">
+					<canvas id="forecastChart" height="400" role="img"
+						th:attr="aria-label=|Line chart of ${forecast.item} national average price with a three-month forecast and 95% range|"></canvas>
+				</div>
+			</div>
+
+			<p class="forecast-comparison" id="forecast-comparison" th:if="${recentForecast != null}">
+				The recent trend projects
+				<span th:text="${#temporals.format(recentForecast.nextMonth.month, 'MMM yyyy')}">Nov 2024</span> at
+				<strong th:text="|₦${#numbers.formatDecimal(recentForecast.nextMonth.pointEstimate, 1, 'COMMA', 0, 'POINT')}|">₦2,050</strong>.
+				The full history projects
+				<strong th:text="|₦${#numbers.formatDecimal(forecast.nextMonth.pointEstimate, 1, 'COMMA', 0, 'POINT')}|">₦1,913</strong>.
+				Where they disagree, ask which window you trust more.
+			</p>
+
+			<section class="metric-row" th:each="m : ${models}"
+				th:classappend="${m == recentForecast} ? 'metric-row-recent' : 'metric-row-full'">
+				<h2 class="metric-row-title">
+					<span class="metric-row-swatch" aria-hidden="true"></span>
+					<span th:text="${m.meta.windowLabel}">Full history (23 months)</span>
+					<span class="metric-row-window" th:text="${m.meta.sampleWindow}">Nov 2022 – Oct 2024</span>
+				</h2>
+				<div class="metric-grid">
+					<div class="metric-card" th:with="p=${m.nextMonth}">
+						<p class="metric-label">Next month</p>
+						<p class="metric-value" th:text="|₦${#numbers.formatDecimal(p.pointEstimate, 1, 'COMMA', 0, 'POINT')}|">₦1,900</p>
+						<p class="metric-detail">
+							<span th:text="${#temporals.format(p.month, 'MMM yyyy')}">Nov 2024</span> ·
+							<span th:text="|₦${#numbers.formatDecimal(p.lower, 1, 'COMMA', 0, 'POINT')}–₦${#numbers.formatDecimal(p.upper, 1, 'COMMA', 0, 'POINT')} range|">₦1,700–₦2,100 range</span>
+						</p>
+					</div>
+					<div class="metric-card" th:with="p=${m.lastForecast}">
+						<p class="metric-label">Three months out</p>
+						<p class="metric-value" th:text="|₦${#numbers.formatDecimal(p.pointEstimate, 1, 'COMMA', 0, 'POINT')}|">₦2,050</p>
+						<p class="metric-detail">
+							<span th:text="${#temporals.format(p.month, 'MMM yyyy')}">Jan 2025</span> ·
+							<span th:text="|₦${#numbers.formatDecimal(p.lower, 1, 'COMMA', 0, 'POINT')}–₦${#numbers.formatDecimal(p.upper, 1, 'COMMA', 0, 'POINT')} range|">₦1,800–₦2,300 range</span>
+						</p>
+					</div>
+					<div class="metric-card">
+						<p class="metric-label">Model fit (R²)</p>
+						<p class="metric-value" th:text="${#numbers.formatDecimal(m.meta.rSquared, 1, 2)}">0.93</p>
+						<p class="metric-detail">
+							<span th:text="${m.meta.fitDescription()}">strong linear trend</span> ·
+							<span th:text="${m.meta.n}">23</span> months of data
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<details class="about-forecast">
+				<summary>About this forecast</summary>
+				<p>
+					Each projection fits a straight line through monthly national averages for this item using ordinary
+					least-squares linear regression, then extends that line three months forward. The shaded bands are 95%
+					prediction intervals: they widen the further ahead you look, because small errors in the fitted slope grow
+					with distance.
+				</p>
+				<p>
+					<strong>Two windows, two questions.</strong> The <em>full history</em> line (green) is fitted on every
+					month of data (<span th:text="${forecast.meta.sampleWindow}">Nov 2022 – Oct 2024</span>). It captures the
+					long-run trend, but when recent months break from that trend — as they did when prices accelerated
+					through 2024 — it under-projects and can start below today's price. The <em>recent trend</em> line
+					(amber) is fitted on the last 12 months only. It follows the current slope, but with fewer points it is
+					more easily pulled around by a single unusual month. Neither is "right": the full history asks
+					"where does the long-run trend point?", the recent trend asks "where are we heading if the last year
+					continues?". When the two agree, that is some reassurance; when they disagree, the gap itself is useful
+					information.
+				</p>
+				<ul>
+					<li><strong>It assumes recent conditions persist.</strong> The model only knows the trend in past prices; it
+						cannot see what will change next month.</li>
+					<li><strong>A straight line cannot bend.</strong> Within its window each model assumes a constant monthly
+						change. R² measures how well the line fits its own window, so the two R² values are not directly
+						comparable — a short window can fit tightly and still be a poor guide.</li>
+					<li><strong>No seasonality.</strong> Harvest and lean-season cycles (for example, yam and tomato prices
+						that fall after harvest and climb in the dry season) are not modelled.</li>
+					<li><strong>No outside shocks.</strong> Fuel-price changes, exchange-rate swings, insecurity in producing
+						regions, transport costs and policy changes such as import bans or tariffs can all move prices
+						sharply and are not in the model.</li>
+					<li><strong>Gaps are real gaps.</strong> Months without an uploaded release are left out rather than filled
+						in; the model uses the actual month spacing.</li>
+				</ul>
+				<p class="mb-0">
+					Treat the numbers as a rough guide to direction and scale, not a prediction of any one month's price.
+				</p>
+			</details>
+		</th:block>
+
+		<div class="empty-state" th:if="${forecast == null}">
+			<h3>Not enough data for a forecast</h3>
+			<p class="mb-0">
+				<span th:text="${selectedItem}">This item</span> needs at least three months of national prices.
+				Upload more NBS releases to build a forecast.
+			</p>
+		</div>
+	</th:block>
+
+</main>
+
+<script th:src="@{/js/forecast-chart.js}"></script>
+<script th:inline="javascript">
+	document.querySelectorAll('#forecast-form select').forEach(s => s.addEventListener('change', () => s.form.submit()));
+	(() => {
+		const chart = JSON.parse(/*[[${chartJson}]]*/ 'null');
+		if (chart) {
+			StapleCharts.render(document.getElementById('forecastChart'), chart, { legend: true, pointRadius: 5 });
+		}
+	})();
+</script>
+</body>
+</html>

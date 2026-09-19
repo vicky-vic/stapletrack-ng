@@ -284,6 +284,214 @@ h3 { font-size: 1.5rem; line-height: 1.2; }
     margin-bottom: 1.5rem;
 }
 
+/* ---------- Extremes explorer ---------- */
+.extremes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.extreme-card {
+    border-radius: 10px;
+    padding: 2rem 1.75rem;
+    border: 1px solid transparent;
+}
+
+.extreme-card-cheapest {
+    background: var(--st-green-100);
+    border-color: var(--st-green-300);
+    color: var(--st-green-900);
+}
+
+.extreme-card-priciest {
+    background: var(--st-amber-100);
+    border-color: var(--st-amber-500);
+    color: var(--st-amber-700);
+}
+
+.extreme-card-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-bottom: 0.5rem;
+}
+
+.extreme-card .extreme-card-state {
+    font-family: var(--font-serif);
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    line-height: 1.05;
+    color: inherit;
+    margin-bottom: 0.5rem;
+}
+
+.extreme-card-price {
+    font-family: var(--font-sans);
+    font-size: 1.35rem;
+    font-weight: 500;
+    margin-bottom: 0;
+}
+
+.extremes-spread {
+    font-size: 1.1rem;
+    color: var(--st-ink-900);
+    margin-bottom: 0.5rem;
+}
+
+.extremes-year-earlier {
+    font-size: 0.95rem;
+    color: var(--st-ink-500);
+}
+
+/* ---------- Zones ---------- */
+/* Doubled class so these tints win over the base .metric-card rule defined further down */
+.metric-card.metric-card-cheapest {
+    background: var(--st-green-100);
+    border-color: var(--st-green-300);
+}
+
+.metric-card.metric-card-cheapest .metric-label,
+.metric-card.metric-card-cheapest .metric-value {
+    color: var(--st-green-900);
+}
+
+.metric-card.metric-card-priciest {
+    background: var(--st-amber-100);
+    border-color: var(--st-amber-500);
+}
+
+.metric-card.metric-card-priciest .metric-label,
+.metric-card.metric-card-priciest .metric-value {
+    color: var(--st-amber-700);
+}
+
+.zones-summary {
+    font-size: 1.1rem;
+    color: var(--st-ink-900);
+    max-width: 70ch;
+}
+
+/* ---------- Forecast ---------- */
+.chart-card-forecast {
+    color: var(--st-ink-700);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.metric-card {
+    background: #FFFFFF;
+    border: 1px solid var(--st-border);
+    border-radius: 10px;
+    padding: 1.5rem 1.75rem;
+}
+
+.metric-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--st-green-500);
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-family: var(--font-serif);
+    font-size: 2.25rem;
+    line-height: 1.1;
+    color: var(--st-ink-900);
+    margin-bottom: 0.35rem;
+}
+
+.metric-detail {
+    font-size: 0.9rem;
+    color: var(--st-ink-500);
+    margin-bottom: 0;
+}
+
+.forecast-comparison {
+    font-size: 1.05rem;
+    color: var(--st-ink-900);
+    max-width: 70ch;
+    margin-bottom: 1.5rem;
+}
+
+.metric-row {
+    margin-bottom: 1rem;
+}
+
+.metric-row .metric-grid {
+    margin-bottom: 1.5rem;
+}
+
+.metric-row-title {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.metric-row-window {
+    font-weight: 400;
+    color: var(--st-ink-500);
+    font-size: 0.9rem;
+}
+
+.metric-row-swatch {
+    display: inline-block;
+    width: 22px;
+    height: 0;
+    border-top: 3px dashed var(--st-green-700);
+}
+
+.metric-row-recent .metric-row-swatch {
+    border-top-color: var(--st-amber-500);
+}
+
+.metric-row-recent .metric-card {
+    border-color: var(--st-amber-500);
+    background: var(--st-amber-100);
+}
+
+.metric-row-recent .metric-label {
+    color: var(--st-amber-700);
+}
+
+.about-forecast {
+    background: var(--st-cream-100);
+    border: 1px solid var(--st-border);
+    border-radius: 10px;
+    padding: 1.25rem 1.75rem;
+    color: var(--st-ink-700);
+    font-size: 0.95rem;
+}
+
+.about-forecast summary {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    color: var(--st-ink-900);
+    cursor: pointer;
+}
+
+.about-forecast[open] summary {
+    margin-bottom: 1rem;
+}
+
+.about-forecast li {
+    margin-bottom: 0.5rem;
+}
+
 /* ---------- Empty state ---------- */
 .empty-state {
     text-align: center;

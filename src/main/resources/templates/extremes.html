@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+	th:replace="~{fragments/layout :: layout(~{::title}, ~{::main}, ~{::script})}">
+<head>
+	<title>Extremes · StapleTrack NG</title>
+</head>
+<body>
+<main class="container-st pt-5">
+
+	<h1 class="hero-title">Cheapest and most expensive states</h1>
+	<p class="lead-st mb-5">For any staple in any month, see which state paid the least and which paid the most.</p>
+
+	<th:block th:unless="${hasData}">
+		<div class="empty-state">
+			<h3>No data yet</h3>
+			<p>Upload an NBS Selected Food Prices Watch file to see state extremes.</p>
+			<a class="btn-st-primary d-inline-block text-decoration-none" th:href="@{/upload}">Upload a release</a>
+		</div>
+	</th:block>
+
+	<th:block th:if="${hasData}">
+		<form id="extremes-form" class="chart-card" method="get" th:action="@{/extremes}">
+			<div class="row g-3 align-items-end">
+				<div class="col-md-8">
+					<label for="item" class="form-label fw-medium">Item</label>
+					<select id="item" name="item" class="form-select">
+						<option th:each="i : ${items}" th:value="${i}" th:text="${i}"
+							th:selected="${i == selectedItem}">Rice local sold loose</option>
+					</select>
+				</div>
+				<div class="col-md-4">
+					<label for="month" class="form-label fw-medium">Month</label>
+					<select id="month" name="month" class="form-select">
+						<option th:each="m : ${months}" th:value="${m}" th:selected="${m == selectedMonth}" th:text="${#temporals.format(m, 'MMM yyyy')}">Oct 2024</option>
+					</select>
+				</div>
+			</div>
+			<noscript><button type="submit" class="btn-st-primary mt-3">Show extremes</button></noscript>
+		</form>
+
+		<th:block th:if="${extremes != null}"
+			th:with="monthLabel=${#temporals.format(extremes.month, 'MMM yyyy')}">
+			<div class="extremes-grid">
+				<section class="extreme-card extreme-card-cheapest">
+					<p class="extreme-card-label">Cheapest</p>
+					<h2 class="extreme-card-state" th:text="${extremes.cheapest.state}">Benue</h2>
+					<p class="extreme-card-price"
+						th:text="|₦${#numbers.formatDecimal(extremes.cheapest.price, 1, 'COMMA', 2, 'POINT')}|">₦1,267.25</p>
+				</section>
+				<section class="extreme-card extreme-card-priciest">
+					<p class="extreme-card-label">Most expensive</p>
+					<h2 class="extreme-card-state" th:text="${extremes.priciest.state}">Kogi</h2>
+					<p class="extreme-card-price"
+						th:text="|₦${#numbers.formatDecimal(extremes.priciest.price, 1, 'COMMA', 2, 'POINT')}|">₦2,693.41</p>
+				</section>
+			</div>
+
+			<p class="extremes-spread" id="price-spread">
+				In <strong th:text="${monthLabel}">Oct 2024</strong>,
+				<span th:text="${extremes.item}">Rice local sold loose</span>
+				<th:block th:if="${extremes.spread().multiple()}">cost
+					<strong th:text="${extremes.spread().shortLabel()}">2.1×</strong> as much in
+					<span th:text="${extremes.priciest.state}">Kogi</span> as in
+					<span th:text="${extremes.cheapest.state}">Benue</span>.</th:block>
+				<th:block th:unless="${extremes.spread().multiple()}">cost
+					<strong th:text="${extremes.spread().label()}">12% more</strong> in
+					<span th:text="${extremes.priciest.state}">Kogi</span> than in
+					<span th:text="${extremes.cheapest.state}">Benue</span>.</th:block>
+			</p>
+
+			<p class="extremes-year-earlier" id="year-earlier" th:if="${extremes.hasYearEarlier()}">
+				A year earlier: cheapest was
+				<span th:text="${extremes.yearEarlier.cheapest.state}">Kebbi</span> at
+				<span th:text="|₦${#numbers.formatDecimal(extremes.yearEarlier.cheapest.price, 1, 'COMMA', 2, 'POINT')}|">₦688.00</span>,
+				priciest was
+				<span th:text="${extremes.yearEarlier.priciest.state}">Lagos</span> at
+				<span th:text="|₦${#numbers.formatDecimal(extremes.yearEarlier.priciest.price, 1, 'COMMA', 2, 'POINT')}|">₦1,122.42</span>.
+			</p>
+		</th:block>
+
+		<div class="empty-state" th:if="${extremes == null}">
+			<h3>No extremes for this selection</h3>
+			<p class="mb-0">
+				The <span th:text="${#temporals.format(selectedMonth, 'MMM yyyy')}">Oct 2024</span> release has no
+				highest/lowest state for <span th:text="${selectedItem}">this item</span>. Try another month.
+			</p>
+		</div>
+	</th:block>
+
+</main>
+
+<script>
+	document.querySelectorAll('#extremes-form select').forEach(s => s.addEventListener('change', () => s.form.submit()));
+</script>
+</body>
+</html>
