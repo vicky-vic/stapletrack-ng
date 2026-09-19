@@ -1,5 +1,11 @@
 # StapleTrack NG
 
+> **Tech:** Java 21 · Spring Boot 3 · Thymeleaf · MySQL · Chart.js · Apache POI · Pure-Java linear regression
+>
+> **Data:** 11 monthly NBS Selected Food Prices Watch releases (Nov 2023 – Oct 2024, excluding May 2024), reconstructed into 23 months of national price history (Nov 2022 – Oct 2024; May 2023 is the only gap) for 43 food items.
+>
+> **Submission tag:** `v1.0-mms3-submission`
+
 A Java + Spring Boot dashboard that turns Nigeria's monthly food price data into readable trends, regional comparisons, and forecasts — so families, small traders, and journalists can see how staple prices are moving and where they're headed.
 
 Built as an MMS3 project for NIIT.
@@ -12,11 +18,35 @@ Food inflation is one of the most pressing issues Nigerian families face right n
 
 ## Features (MVP)
 
-1. **File import** — upload multiple monthly NBS "Selected Food Prices Watch" Excel files; overlapping months are deduplicated automatically.
-2. **National trend dashboard** — line chart per staple showing national average price over time.
-3. **Extremes explorer** — pick an item and month, see which state had the cheapest and most expensive price.
-4. **Zonal disparity view** — bar chart per item across the 6 geopolitical zones (North Central, North East, North West, South East, South South, South West).
-5. **Forecast** — predict the next 1–3 months of national average per staple using linear regression (pure Java, no ML library).
+### 1. File import
+
+Upload the monthly NBS "Selected Food Prices Watch" Excel files exactly as published. The parser finds sheets and columns by their content rather than their position (NBS changes tab order and header wording between releases), and overlapping months are updated rather than duplicated. The landing page leads to upload or to the charts.
+
+![Landing page with the upload and dashboard entry points](docs/screenshots/landing.png)
+
+### 2. National trend dashboard
+
+Line charts of the national average price for rice, beans and yam across every uploaded month, with a dashed three-month forecast tail and its 95% range. Months no release covers are shown as gaps, not filled in.
+
+![Dashboard with forecasts](docs/screenshots/dashboard.png)
+
+### 3. Extremes explorer
+
+Pick an item and month to see which state paid the least and which paid the most, and how far apart they were.
+
+![Cheapest and most expensive states](docs/screenshots/extremes.png)
+
+### 4. Zonal disparity view
+
+A Nigeria states map beside a bar chart of the six geopolitical zones, both on the same green-to-amber scale from cheapest to most expensive zone.
+
+![Nigeria zonal price map](docs/screenshots/zones.png)
+
+### 5. Forecast
+
+Three-month projections of the national average from pure-Java linear regression, shown for two windows side by side — the full history and the last 12 months — each with a 95% prediction band, R² and plain-English caveats.
+
+![Dual-window price forecast](docs/screenshots/forecast.png)
 
 ## Architecture
 
@@ -79,7 +109,7 @@ Three tables, each keyed by item and month:
    cd stapletrack-ng
    ```
 
-2. Create the database:
+2. Create the database (optional — the connection URL uses `createDatabaseIfNotExist=true`, so the app creates it on first start):
    ```sql
    CREATE DATABASE stapletrack;
    ```
@@ -99,25 +129,29 @@ Three tables, each keyed by item and month:
 
 ### Loading data
 
-Download the monthly **Selected Food Prices Watch** releases from [nigerianstat.gov.ng](https://nigerianstat.gov.ng) — one Excel file per month. Upload each through the `/upload` page. Overlapping months across files are deduplicated on the `(item, month_year)` key. The more monthly files you upload, the richer the trend charts and the more reliable the forecast.
+This app was built and defended using 11 monthly NBS releases (Nov 2023 – Oct 2024, excluding May 2024), giving 23 months of national price history from Nov 2022 to Oct 2024 (May 2023 is the only missing month). Each release carries three months — the current month, the previous month, and the same month a year earlier. The previous month is already in the prior release, so each file adds about 2 new months (the current month and the year-ago month). The number of files you load therefore sets the depth of the trends and the quality of the forecast.
+
+Download the monthly **Selected Food Prices Watch** releases from [nigerianstat.gov.ng](https://nigerianstat.gov.ng) and upload each through the `/upload` page.
 
 ## Project structure
 
 ```
 stapletrack-ng/
-├── src/main/java/com/stapletrack/ng/
-│   ├── StapleTrackApplication.java
-│   ├── controller/       # DashboardController, UploadController, CompareController, ForecastController
-│   ├── service/          # ImportService, PriceQueryService, ZonalService, ExtremesService
-│   │   └── forecast/     # LinearRegression + ForecastService
+├── src/main/java/ng/stapletrack/
+│   ├── StapleTrackNgApplication.java
+│   ├── controller/       # Home, Upload, Dashboard, Extremes, Zones, Forecast pages + JSON API controllers
+│   ├── service/          # ImportService, PriceQueryService, ExtremesService, ZonesService,
+│   │   │                 #   NigeriaMapRenderer, Spread, StateNames, Zones
+│   │   └── forecast/     # LinearRegression, ForecastService, ForecastResult, ForecastChart
 │   ├── repository/       # NationalPriceRepository, ZonalPriceRepository, StateExtremeRepository
-│   ├── entity/           # NationalPrice, ZonalPrice, StateExtreme + Kind enum
-│   ├── parser/           # Apache POI parser for the NBS xlsx structure
-│   └── dto/              # View models and chart payloads
+│   ├── entity/           # NationalPrice, ZonalPrice, StateExtreme, Zone, ExtremeKind, YearMonthConverter
+│   └── parser/           # NbsPriceWatchParser — Apache POI parser for the NBS xlsx structure
 ├── src/main/resources/
-│   ├── templates/        # Thymeleaf HTML templates
-│   ├── static/           # CSS, JS assets (if any)
+│   ├── templates/        # Thymeleaf HTML templates (+ fragments/layout.html)
+│   ├── static/           # css/app.css, js/forecast-chart.js, img/nigeria-zones.svg
+│   ├── schema.sql
 │   └── application.properties
+├── docs/                 # screenshots/
 └── pom.xml
 ```
 
@@ -129,18 +163,18 @@ stapletrack-ng/
 - Frequency: Monthly release
 - Coverage per file: ~43 food items × (national averages for 3 months + zonal averages + highest/lowest state)
 - Format: `.xlsx` (parsed directly by Apache POI)
-- Historical depth: each file adds ~1–2 new months to your database, so 6–12 monthly files gives you a solid time series.
+- Historical depth: each file adds about 2 new months of national prices (and 1 month of zonal and state data), so 6–12 monthly files give a solid time series.
 
 ## Roadmap
 
 - [x] Project scaffold and MySQL setup
-- [ ] Three JPA entities + repositories (`NationalPrice`, `ZonalPrice`, `StateExtreme`)
-- [ ] Apache POI parser for the NBS xlsx (both sheets)
-- [ ] Upload endpoint + dedupe on unique keys
-- [ ] National trend dashboard (line chart)
-- [ ] Extremes explorer (cheapest/priciest state per item per month)
-- [ ] Zonal disparity view (bar chart across 6 zones)
-- [ ] Forecast module (linear regression on national averages)
+- [x] Three JPA entities + repositories (`NationalPrice`, `ZonalPrice`, `StateExtreme`)
+- [x] Apache POI parser for the NBS xlsx (both sheets)
+- [x] Upload endpoint + dedupe on unique keys
+- [x] National trend dashboard (line chart)
+- [x] Extremes explorer (cheapest/priciest state per item per month)
+- [x] Zonal disparity view (bar chart across 6 zones)
+- [x] Forecast module (linear regression on national averages)
 - [ ] Deployment (Railway, Render, or a VPS)
 
 ## Author
@@ -150,6 +184,12 @@ Built for MMS3 (NIIT) submission.
 ## License
 
 MIT
+
+## Credits
+
+- **Price data**: [National Bureau of Statistics of Nigeria](https://nigerianstat.gov.ng), Selected Food Prices Watch monthly releases.
+- **Nigeria states SVG map**: derived from [MapSVG](https://mapsvg.com/maps/nigeria) via [@svg-maps/nigeria](https://www.npmjs.com/package/@svg-maps/nigeria), licensed CC BY 4.0. Modified to add per-state zone tagging.
+- **Typography**: [Fraunces](https://fonts.google.com/specimen/Fraunces) and [DM Sans](https://fonts.google.com/specimen/DM+Sans), both SIL Open Font License, served from Google Fonts.
 
 ## Troubleshooting
 
