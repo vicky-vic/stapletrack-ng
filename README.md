@@ -193,4 +193,4 @@ MIT
 
 ## Troubleshooting
 
-If tests fail with `NoClassDefFoundError` or other class-loading errors, run `.\mvnw clean test` (or `./mvnw clean test` on macOS/Linux) — VS Code's Java extension sometimes leaves stale compiled classes in `target/`.
+If tests fail with `NoClassDefFoundError` or other class-loading errors, run `.\mvnw clean test` (or `./mvnw clean test` on macOS/Linux) — VS Code's Java extension sometimes leaves stale compiled classes in `target/`. 
