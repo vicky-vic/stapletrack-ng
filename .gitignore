@@ -45,3 +45,4 @@ data/raw/
 *.xlsx
 *.pdf
 application-local.properties
+.env

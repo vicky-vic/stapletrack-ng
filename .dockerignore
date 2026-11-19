@@ -1,0 +1,8 @@
+target/
+.git/
+.gitignore
+.idea/
+.vscode/
+*.md
+data/
+src/main/resources/application-local.properties
